@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="台管理">
+<meta name="theme-color" content="#0a0a0a">
+<title>台管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0a0a0a;--sf:#161616;--sf2:#1e1e1e;--bd:#2a2a2a;--bd2:#333;--tx:#f0f0f0;--tx2:#999;--tx3:#555;--red:#E24B4A;--green:#639922;--amber:#BA7517;--purple:#9B6DFF}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:-apple-system,'Hiragino Sans',sans-serif;overflow:hidden}
+#shell{position:fixed;left:0;right:0;bottom:0;height:100dvh;display:flex;flex-direction:column;transition:height .45s cubic-bezier(.32,.72,0,1);background:var(--bg)}
+#shell.pip{height:72dvh;border-radius:20px 20px 0 0;box-shadow:0 -1px 0 var(--bd)}
+#pip-hint{position:fixed;top:0;left:0;right:0;height:28dvh;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .35s}
+#pip-hint.on{opacity:1}
+.phb{border:1.5px dashed #252525;border-radius:14px;padding:10px 20px;text-align:center}
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,44px)+8px) 16px 10px;flex-shrink:0;transition:padding-top .45s cubic-bezier(.32,.72,0,1)}
+#shell.pip #hdr{padding-top:12px}
+#pip-btn{display:flex;align-items:center;gap:5px;background:var(--sf);border:.5px solid var(--bd2);border-radius:99px;padding:6px 11px;font-size:11px;font-weight:500;color:var(--tx2);cursor:pointer;font-family:inherit}
+#pip-btn.on{background:#1a0808;border-color:var(--red);color:#f09595}
+#tabs{display:flex;border-bottom:.5px solid var(--bd);flex-shrink:0}
+.tab{flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:9px 4px;font-size:11px;font-weight:500;color:var(--tx3);cursor:pointer;font-family:inherit;white-space:nowrap}
+.tab.on{color:var(--tx);border-bottom-color:var(--tx)}
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px;padding-bottom:calc(env(safe-area-inset-bottom,34px)+14px)}
+
+/* typography */
+.lbl{font-size:9px;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px}
+.big{font-size:34px;font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
+.mono{font-variant-numeric:tabular-nums}
+
+/* components */
+.card{background:var(--sf);border-radius:12px;padding:12px 14px;border:.5px solid var(--bd)}
+.row{display:flex;justify-content:space-between;align-items:center}
+.bar-wrap{height:5px;background:var(--sf2);border-radius:99px;overflow:hidden}
+.bar-fill{height:100%;border-radius:99px;transition:width .4s,background .4s}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--sf);border:.5px solid var(--bd2);border-radius:99px;color:var(--tx2);font-size:12px;padding:6px 12px;cursor:pointer;font-family:inherit;transition:all .15s}
+.chip.on{background:var(--tx);color:var(--bg);border-color:var(--tx);font-weight:600}
+.chip.add{color:var(--purple);border-color:var(--purple)}
+select.sel{background:var(--sf);border:.5px solid var(--bd2);border-radius:9px;color:var(--tx);font-size:13px;padding:9px 11px;width:100%;font-family:inherit;outline:none;-webkit-appearance:none}
+input.inp{background:var(--sf);border:.5px solid var(--bd2);border-radius:9px;color:var(--tx);font-size:14px;padding:9px 12px;width:100%;outline:none;font-family:-apple-system,sans-serif}
+input.inp::placeholder{color:var(--tx3)}
+input.inp.sm{font-size:12px;padding:7px 10px}
+
+/* buttons */
+.btn-jug{width:100%;background:#1a0a3a;border:1.5px solid var(--purple);border-radius:14px;color:#C8A4F8;font-size:20px;font-weight:700;padding:16px;cursor:pointer;font-family:inherit;letter-spacing:.06em}
+.btn-jug:active{transform:scale(.96);opacity:.85}
+.btn-jug.sm{font-size:14px;padding:9px;border-radius:99px;width:auto}
+.btn-jug.sm.on{background:#2a1a4a}
+.btn-main{width:100%;background:var(--tx);border:none;border-radius:13px;color:var(--bg);font-size:15px;font-weight:700;padding:14px;cursor:pointer;font-family:inherit}
+.btn-main:active{opacity:.85}
+.btn-ol{background:none;border:.5px solid var(--bd2);border-radius:9px;color:var(--tx2);font-size:12px;padding:8px 12px;cursor:pointer;font-family:inherit}
+.btn-add{background:var(--sf);border:.5px solid var(--bd2);border-radius:9px;color:var(--tx);font-size:14px;font-weight:500;padding:11px 0;cursor:pointer;font-family:inherit}
+.btn-add:active{transform:scale(.95)}
+.btn-bonus{flex:1;background:var(--sf);border:.5px solid var(--bd2);border-radius:11px;color:var(--tx);font-size:12px;font-weight:600;padding:11px 0;cursor:pointer;font-family:inherit;text-align:center;line-height:1.5}
+.btn-bonus.big-b{border-color:#185FA5;color:#85B7EB;background:#04142a}
+.btn-bonus.reg-b{border-color:#3B6D11;color:#97C459;background:#0a1400}
+.btn-bonus:active,.btn-add:active{transform:scale(.95)}
+.cnt-btn{background:var(--sf2);border:.5px solid var(--bd2);border-radius:8px;color:var(--tx);font-size:18px;font-weight:600;width:36px;height:36px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+.cnt-btn:active{transform:scale(.92)}
+
+/* alerts */
+.a-warn{background:#1e1500;border:.5px solid var(--amber);color:#EF9F27;border-radius:9px;padding:10px 13px;font-size:12px;margin-bottom:10px}
+.a-over{background:#2a0808;border:.5px solid var(--red);border-radius:12px;padding:12px 14px;margin-bottom:11px}
+.a-rec{background:#1a0808;border:.5px solid #993556;border-radius:11px;padding:11px 13px;margin-bottom:11px}
+
+/* misc */
+.goal-btn{background:var(--sf);border:.5px solid var(--bd);border-radius:11px;padding:10px 13px;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:5px;font-family:inherit}
+.goal-btn.on{border-color:#444;background:var(--sf2)}
+.bal{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.bal.p{background:#0a1e06;color:#97C459}.bal.n{background:#1e0808;color:#f09595}.bal.z{background:var(--sf2);color:var(--tx2)}
+.info-box{font-size:11px;color:var(--tx3);line-height:1.7;background:var(--sf2);border-radius:9px;padding:10px 12px}
+.div{height:.5px;background:var(--bd);margin:11px 0}
+.g{height:10px}.g2{height:18px}
+.rpm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:9px}
+.rpm-cell{background:var(--sf2);border:.5px solid var(--bd);border-radius:9px;color:var(--tx);font-size:17px;padding:12px 0;cursor:pointer;font-family:-apple-system,sans-serif}
+.rpm-cell:active{transform:scale(.93)}
+.rpm-cell.ctr{background:var(--tx);color:var(--bg);font-weight:600;border-color:var(--tx)}
+</style>
+</head>
+<body>
+<div id="pip-hint"><div class="phb"><div style="font-size:16px;margin-bottom:4px">📺</div><div style="font-size:11px;color:#444">PiPをここに置いてください</div></div></div>
+
+<!-- 確認モーダル -->
+<div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1e1e1e;border:.5px solid #E24B4A;border-radius:16px;padding:24px 20px;max-width:320px;width:100%">
+    <div style="font-size:18px;margin-bottom:12px;text-align:center">⚠️</div>
+    <div style="font-size:14px;font-weight:700;color:#f0f0f0;margin-bottom:10px;text-align:center">履歴を削除しますか？</div>
+    <div style="font-size:12px;color:#999;line-height:1.7;margin-bottom:20px;text-align:center">過去の負けは消せません。<br>記録を削除しても実際の損失は<br>なくなりません。</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="confirmClearHist(false)" style="flex:1;background:none;border:.5px solid #333;border-radius:10px;color:#999;font-size:14px;padding:12px;cursor:pointer;font-family:inherit">キャンセル</button>
+      <button onclick="confirmClearHist(true)" style="flex:1;background:#E24B4A;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;padding:12px;cursor:pointer;font-family:inherit">削除する</button>
+    </div>
+  </div>
+</div>
+<div id="shell">
+  <div id="hdr">
+    <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:baseline;gap:2px">
+          <span style="font-size:15px;font-weight:800;letter-spacing:-.5px;color:var(--tx)">ぱちすろの</span><span style="font-size:17px;font-weight:900;letter-spacing:-.5px;background:linear-gradient(135deg,#9B6DFF,#E24B4A);-webkit-background-clip:text;-webkit-text-fill-color:transparent">OTOMO</span>
+        </div>
+        <button id="pip-btn" onclick="togglePip()">
+          <svg width="12" height="12" viewBox="0 0 13 13" fill="none"><rect x=".5" y=".5" width="12" height="9" rx="2" stroke="currentColor" stroke-width="1.2"/><rect x="6" y="5" width="6" height="4.5" rx="1" fill="currentColor"/></svg>
+          PiP
+        </button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input id="srch" type="search" placeholder="🔍 WEBを開いて検索..."
+          style="flex:1;background:var(--sf2);border:.5px solid var(--bd2);border-radius:8px;color:var(--tx);font-size:13px;padding:7px 10px;outline:none;font-family:inherit"
+          onkeydown="if(event.key==='Enter')doSearch()">
+        <button onclick="doSearch()"
+          style="background:var(--sf);border:.5px solid var(--bd2);border-radius:8px;color:var(--tx2);font-size:12px;padding:7px 12px;cursor:pointer;font-family:inherit;white-space:nowrap">
+          検索
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="tabs">
+    <button class="tab on" onclick="goTab('session')">セッション</button>
+    <button class="tab" onclick="goTab('ev')">期待値</button>
+    <button class="tab" onclick="goTab('store')">店舗</button>
+    <button class="tab" onclick="goTab('history')">履歴</button>
+    <button class="tab" onclick="goTab('browser')">ブラウザ</button>
+  </div>
+  <div id="content"></div>
+
+  <!-- ブラウザパネル：Safari起動型クイックランチャー -->
+  <div id="browser-panel" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:14px 16px">
+    <!-- 検索バー -->
+    <div style="display:flex;gap:6px;margin-bottom:16px">
+      <input id="b-url" type="search" placeholder="🔍 検索またはURLを入力"
+        style="flex:1;background:var(--sf);border:.5px solid var(--bd2);border-radius:9px;color:var(--tx);font-size:13px;padding:9px 12px;outline:none;font-family:inherit"
+        onkeydown="if(event.key==='Enter')browserGo()">
+      <button onclick="browserGo()" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:9px;color:var(--tx);font-size:13px;padding:9px 14px;cursor:pointer;font-family:inherit">開く</button>
+    </div>
+
+    <!-- 解析サイト -->
+    <div style="font-size:9px;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">解析サイト</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
+      <button onclick="window.open('https://1geki.jp','_blank')" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:12px;font-weight:500;padding:11px 10px;cursor:pointer;font-family:inherit;text-align:left">🎯 一撃</button>
+      <button onclick="window.open('https://pachiseven.jp','_blank')" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:12px;font-weight:500;padding:11px 10px;cursor:pointer;font-family:inherit;text-align:left">7️⃣ パチ7</button>
+      <button onclick="window.open('https://p-town.dmm.com','_blank')" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:12px;font-weight:500;padding:11px 10px;cursor:pointer;font-family:inherit;text-align:left">🎰 ぱちタウン</button>
+      <button onclick="window.open('https://pachimaga.com','_blank')" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:12px;font-weight:500;padding:11px 10px;cursor:pointer;font-family:inherit;text-align:left">📖 パチマガスロマガ</button>
+      <button onclick="window.open('https://www.p-world.co.jp','_blank')" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:12px;font-weight:500;padding:11px 10px;cursor:pointer;font-family:inherit;text-align:left">🏆 P-WORLD（店舗検索）</button>
+      <button onclick="window.open('https://minpachi.com','_blank')" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:12px;font-weight:500;padding:11px 10px;cursor:pointer;font-family:inherit;text-align:left">💬 みんパチ</button>
+      <button onclick="window.open('https://chonborista.com','_blank')" style="background:var(--sf);border:.5px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:12px;font-weight:500;padding:11px 10px;cursor:pointer;font-family:inherit;text-align:left">🔬 ちょんぼりすた</button>
+    </div>
+
+    <!-- ブックマーク -->
+    <div style="font-size:9px;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">マイブックマーク</div>
+    <div id="bm-list" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:18px">
+      <input id="bm-name" class="inp" placeholder="名前（例: 一撃ジャグラー）" style="flex:1;font-size:12px;padding:8px 10px">
+      <input id="bm-url" class="inp" placeholder="URL" style="flex:1.5;font-size:12px;padding:8px 10px">
+      <button onclick="addBookmark()" style="background:var(--purple);border:none;border-radius:9px;color:#fff;font-size:12px;padding:8px 12px;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+    </div>
+
+    <div style="font-size:11px;color:var(--tx3);line-height:1.7;background:var(--sf2);border-radius:9px;padding:10px 12px">
+      Safariで開いた後、PiPでYouTubeを流しながらアプリに戻るとセッション管理と同時に使えます。
+    </div>
+  </div>
+</div>
+<script>
+// ═══ MACHINE DATA (2025現行6号機) ═══
+const MACHINES=[
+  {id:'neoaim',name:'ネオアイムジャグラーEX',big:252,reg:96,rpm:30,
+    sets:[{s:1,b:273.1,r:439.8},{s:2,b:269.7,r:399.6},{s:3,b:273.1,r:364.1},{s:4,b:260.1,r:315.1},{s:5,b:248.6,r:273.1},{s:6,b:240.9,r:234.2}]},
+  {id:'gogo3',name:'ゴーゴージャグラー3',big:240,reg:96,rpm:30,
+    sets:[{s:1,b:299.2,r:299.2},{s:2,b:277.0,r:277.0},{s:3,b:262.8,r:262.8},{s:4,b:251.5,r:251.5},{s:5,b:240.3,r:240.3},{s:6,b:234.9,r:234.9}]},
+  {id:'my5',name:'マイジャグラー5',big:240,reg:96,rpm:30,
+    sets:[{s:1,b:287.4,r:364.1},{s:2,b:282.5,r:315.1},{s:3,b:273.1,r:282.5},{s:4,b:260.1,r:260.1},{s:5,b:240.9,r:234.2},{s:6,b:219.3,r:206.3}]},
+  {id:'funky2',name:'ファンキージャグラー2',big:240,reg:96,rpm:30,
+    sets:[{s:1,b:269.7,r:364.1},{s:2,b:260.1,r:315.1},{s:3,b:260.1,r:273.1},{s:4,b:252.9,r:252.9},{s:5,b:234.2,r:234.2},{s:6,b:209.1,r:209.1}]},
+  {id:'happy3',name:'ハッピージャグラーVⅢ',big:240,reg:96,rpm:30,
+    sets:[{s:1,b:269.7,r:321.5},{s:2,b:260.1,r:292.6},{s:3,b:248.6,r:260.1},{s:4,b:234.2,r:234.2},{s:5,b:219.3,r:214.7},{s:6,b:206.3,r:193.6}]},
+  {id:'ultra',name:'ウルトラミラクルジャグラー',big:240,reg:96,rpm:30,
+    sets:[{s:1,b:260.1,r:399.6},{s:2,b:252.9,r:356.0},{s:3,b:248.6,r:315.1},{s:4,b:234.2,r:277.6},{s:5,b:224.2,r:252.9},{s:6,b:216.3,r:234.2}]},
+];
+
+// denomination face values (equal exchange)
+const FACE={4:4, 1:1, 20:20, 5:5}; // yen per medal by rate key
+
+// ═══ STATE ═══
+const S={
+  pip:false, tab:'session', screen:'setup',
+  config:null, ses:null, result:null,
+  stores:JSON.parse(localStorage.getItem('stores')||'[]'),
+  history:JSON.parse(localStorage.getItem('history')||'[]'),
+  customMachines:JSON.parse(localStorage.getItem('cmachines')||'[]'),
+  showCustomMForm:false,
+};
+
+// Setup form config
+const CFG={
+  mode:'juggler', dtype:'5s', budget:1000, goal:'peka1',
+  pdenom:319, machine:'gogo3', rpm:30, ceilG:0,
+  storeIdx:-1, // -1 = no store selected
+  customMachineIdx:-1, // -1 = not custom
+};
+
+// Counter state (persists across sessions)
+const CTR={
+  counters:[
+    {label:'ぶどう',val:0},{label:'チェリー',val:0},
+    {label:'ベル',val:0},{label:'役物',val:0},
+  ],
+  startG:0, curG:0,
+};
+
+// ═══ HELPERS ═══
+const fY=v=>'¥'+Math.round(Math.abs(v)).toLocaleString();
+const fmt=v=>v>=10000?(v/10000).toFixed(v%10000===0?0:1)+'万':v>=1000?(v/1000).toFixed(0)+'k':String(Math.round(v));
+const qG=(p,q)=>Math.ceil(Math.log(1-q)/Math.log(1-p));
+const comb=sv=>1/(1/sv.b+1/sv.r);
+const getM=id=>MACHINES.find(m=>m.id===id)||MACHINES[0];
+
+// Get yen per medal considering store exchange rate
+function yenPerMedal(dtype, storeIdx){
+  const rateKey=dtype.replace(/[^0-9]/g,''); // '4p'→'4', '20s'→'20' etc
+  const face={4:4,1:1,20:20,5:5}[parseInt(rateKey)]||5;
+  if(storeIdx<0||storeIdx>=S.stores.length) return face;
+  const store=S.stores[storeIdx];
+  if(store.type==='equal') return face;
+  // 非等価: store.rates[dtype] = 1000円あたり何玉/枚
+  const rate=store.rates?.[dtype];
+  if(!rate) return face;
+  return 1000/rate;
+}
+
+function getDtypeName(dtype){
+  return {4:'4パチ',1:'1パチ',20:'20スロ',5:'5スロ'}[parseInt(dtype.replace(/[^0-9]/g,''))]||dtype;
+}
+
+// ═══ INFRA ═══
+function togglePip(){
+  S.pip=!S.pip;
+  document.getElementById('shell').classList.toggle('pip',S.pip);
+  document.getElementById('pip-hint').classList.toggle('on',S.pip);
+  const b=document.getElementById('pip-btn');
+  b.classList.toggle('on',S.pip);
+  b.innerHTML=`<svg width="12" height="12" viewBox="0 0 13 13" fill="none"><rect x=".5" y=".5" width="12" height="9" rx="2" stroke="currentColor" stroke-width="1.2"/><rect x="6" y="5" width="6" height="4.5" rx="1" fill="currentColor"/></svg> ${S.pip?'解除':'PiP'}`;
+}
+function goTab(t){
+  S.tab=t;
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',['session','ev','store','history','browser'][i]===t));
+  // ブラウザタブはiframeパネルの表示切替
+  const bp=document.getElementById('browser-panel');
+  const ct=document.getElementById('content');
+  if(t==='browser'){
+    bp.style.display='flex';
+    ct.style.display='none';
+    setTimeout(renderBookmarks,50);
+  } else {
+    bp.style.display='none';
+    ct.style.display='block';
+    render();
+  }
+}
+function render(){
+  const el=document.getElementById('content');
+  if(S.tab==='ev')     {el.innerHTML=renderEV();return}
+  if(S.tab==='store')  {el.innerHTML=renderStore();return}
+  if(S.tab==='history'){el.innerHTML=renderHistory();return}
+  if(S.screen==='setup')   el.innerHTML=renderSetup();
+  else if(S.screen==='session') el.innerHTML=renderSession();
+  else el.innerHTML=renderResult();
+}
+
+// ═══ SETUP ═══
+const GOALS_P=[{id:'hit1',label:'1回当たり',desc:'即撤退'},{id:'hit2',label:'2回当たり',desc:''},{id:'sakib40',label:'先バレ 40%',desc:''},{id:'sakib90',label:'先バレ 90%',desc:''},{id:'sakibEX',label:'先バレ EX',desc:'確定演出'}];
+const GOALS_S=[{id:'peka1',label:'1ペカ',desc:'即撤退'},{id:'peka2',label:'2ペカ',desc:''}];
+const dtypesFor=mode=>mode==='pachinko'?[{id:'4p',label:'4パチ'},{id:'1p',label:'1パチ'}]:[{id:'5s',label:'5スロ'},{id:'20s',label:'20スロ'}];
+
+function renderSetup(){
+  const isP=CFG.mode==='pachinko', isJ=CFG.mode==='juggler', isS=CFG.mode==='slot';
+  const dtypes=dtypesFor(CFG.mode);
+  if(isP&&!dtypes.find(d=>d.id===CFG.dtype)) CFG.dtype='4p';
+  if(!isP&&!dtypes.find(d=>d.id===CFG.dtype)) CFG.dtype='5s';
+  const goals=isP?GOALS_P:GOALS_S;
+
+  // 店舗プルダウン
+  const storeRow=S.stores.length?`
+    <div class="lbl">店舗</div>
+    <select class="sel" style="margin-bottom:14px" onchange="CFG.storeIdx=parseInt(this.value);render()">
+      <option value="-1"${CFG.storeIdx<0?' selected':''}>店舗なし（等価計算）</option>
+      ${S.stores.map((s,i)=>`<option value="${i}"${CFG.storeIdx===i?' selected':''}>${s.name} (${s.type==='equal'?'等価':'非等価'})</option>`).join('')}
+    </select>`:'';
+
+  // モード選択
+  const allSlotModes=`
+    <div class="chips" style="margin-bottom:14px">
+      <button class="chip${isP?' on':''}" onclick="CFG.mode='pachinko';CFG.dtype='4p';CFG.goal='hit1';render()">パチンコ</button>
+      <button class="chip${isJ?' on':''}" onclick="CFG.mode='juggler';CFG.dtype='5s';CFG.goal='peka1';CFG.budget=1000;render()">ジャグラー</button>
+      <button class="chip${isS&&CFG.customMachineIdx<0?' on':''}" onclick="CFG.mode='slot';CFG.dtype='5s';CFG.goal='hit1';CFG.customMachineIdx=-1;render()">汎用スロット</button>
+      ${S.customMachines.map((m,i)=>`<button class="chip${CFG.customMachineIdx===i?' on':''}" onclick="loadCustomM(${i})">${m.name}</button>`).join('')}
+      <button class="chip add" onclick="S.showCustomMForm=!S.showCustomMForm;render()">＋</button>
+    </div>
+    ${S.showCustomMForm?renderCustomMForm():''}`;
+
+  // カスタム機種フォーム
+  // ジャグラー機種選択
+  const machineRow=isJ?`
+    <div class="lbl">機種</div>
+    <select class="sel" style="margin-bottom:10px" onchange="CFG.machine=this.value;CFG.rpm=getM(this.value).rpm;render()">
+      ${MACHINES.map(m=>`<option value="${m.id}"${CFG.machine===m.id?' selected':''}>${m.name}</option>`).join('')}
+    </select>`:'';
+
+  // パチンコ分母
+  const denomRow=isP?`
+    <div class="lbl">確率分母</div>
+    <div class="chips" style="margin-bottom:8px">${[199,319,399].map(d=>`<button class="chip${CFG.pdenom===d?' on':''}" onclick="CFG.pdenom=${d};render()">1/${d}</button>`).join('')}</div>
+    <input class="inp" type="number" placeholder="その他" oninput="if(this.value)CFG.pdenom=parseInt(this.value)" style="margin-bottom:10px">`:'';
+
+  // G/千円
+  const rpmRow=`<div class="lbl">1000円あたりのゲーム数</div>
+    <input class="inp" type="number" value="${CFG.rpm}" oninput="CFG.rpm=parseInt(this.value)||30" style="margin-bottom:10px">`;
+
+  // 天井G
+  const ceilRow=`<div class="lbl">天井ゲーム数（0=なし）</div>
+    <input class="inp" type="number" value="${CFG.ceilG}" oninput="CFG.ceilG=parseInt(this.value)||0" style="margin-bottom:10px">`;
+
+  // 上限予算
+  const budgetChips=isJ
+    ? `<button class="btn-jug sm${CFG.budget===1000?' on':''}" onclick="CFG.budget=1000;render()">🎰 1000ジャグ</button>
+       ${[2000,3000,5000].map(b=>`<button class="chip${CFG.budget===b?' on':''}" onclick="CFG.budget=${b};render()">${b/1000}k円</button>`).join('')}`
+    : [2000,3000,5000,10000,20000,30000].map(b=>`<button class="chip${CFG.budget===b?' on':''}" onclick="CFG.budget=${b};render()">${b>=10000?b/10000+'万':b/1000+'k'}円</button>`).join('');
+
+  return `${storeRow}
+    <div class="lbl">モード</div>
+    ${allSlotModes}
+    ${machineRow}
+    <div class="lbl">レート</div>
+    <div class="chips" style="margin-bottom:10px">
+      ${dtypes.map(d=>`<button class="chip${CFG.dtype===d.id?' on':''}" onclick="CFG.dtype='${d.id}';render()">${d.label}</button>`).join('')}
+    </div>
+    ${denomRow}
+    ${rpmRow}
+    ${ceilRow}
+    <div class="lbl">上限予算</div>
+    <div class="chips" style="margin-bottom:8px">${budgetChips}</div>
+    <input class="inp" type="number" placeholder="カスタム（円）" oninput="if(this.value)CFG.budget=parseInt(this.value)" style="margin-bottom:12px">
+    ${!isS?`<div class="lbl">撤退ゴール</div>
+      ${goals.map(g=>`<button class="goal-btn${CFG.goal===g.id?' on':''}" onclick="CFG.goal='${g.id}';render()">
+        <span style="font-size:13px;font-weight:500">${g.label}</span>
+        <span style="font-size:11px;color:var(--tx3)">${g.desc}</span>
+      </button>`).join('')}`:''}
+    <div class="g2"></div>
+    <button class="btn-main" onclick="startSes()">セッション開始</button><div class="g"></div>`;
+}
+
+function renderCustomMForm(){
+  return `<div class="card" style="margin-bottom:12px;border-color:var(--purple)">
+    <div style="font-size:11px;color:var(--purple);font-weight:600;margin-bottom:9px">＋ カスタム機種を追加</div>
+    <input class="inp sm" id="cm-n" placeholder="機種名" style="margin-bottom:6px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+      <input class="inp sm" id="cm-rpm" type="number" placeholder="G/千円（例:30）">
+      <input class="inp sm" id="cm-ceil" type="number" placeholder="天井G（0=なし）">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <input class="inp sm" id="cm-big" type="number" placeholder="BIG枚数（例:240）">
+      <input class="inp sm" id="cm-reg" type="number" placeholder="REG枚数（例:96）">
+    </div>
+    <div class="g"></div>
+    <button class="btn-main" style="font-size:13px" onclick="saveCustomM()">保存</button>
+  </div>`;
+}
+
+function saveCustomM(){
+  const n=document.getElementById('cm-n')?.value.trim(); if(!n) return;
+  const m={name:n,rpm:parseInt(document.getElementById('cm-rpm')?.value)||30,
+    ceilG:parseInt(document.getElementById('cm-ceil')?.value)||0,
+    big:parseInt(document.getElementById('cm-big')?.value)||240,
+    reg:parseInt(document.getElementById('cm-reg')?.value)||96};
+  S.customMachines.push(m);
+  localStorage.setItem('cmachines',JSON.stringify(S.customMachines));
+  S.showCustomMForm=false; render();
+}
+
+function loadCustomM(i){
+  const m=S.customMachines[i];
+  CFG.mode='slot'; CFG.customMachineIdx=i;
+  CFG.rpm=m.rpm||30; CFG.ceilG=m.ceilG||0;
+  CFG.dtype='5s'; CFG.goal='hit1';
+  S.showCustomMForm=false; render();
+}
+
+function startSes(){
+  S.config={...CFG};
+  const isJ=CFG.mode==='juggler', isP=CFG.mode==='pachinko';
+  S.ses={invested:0, payout:0, bigC:0, regC:0, hits:0,
+    records:[], showRpm:false, pendingInv:0,
+    warnShown:false, events:[], pendingBonus:null, gamesPlayed:0};
+  // Reset counters only if user starts fresh (keep old values)
+  S.screen='session';
+  const mname=isJ?getM(CFG.machine).name:CFG.customMachineIdx>=0?S.customMachines[CFG.customMachineIdx].name:'';
+  const storeName=CFG.storeIdx>=0?` | ${S.stores[CFG.storeIdx].name}`:'';
+  document.getElementById('hs').textContent=(mname||`${isP?'パチンコ':'スロット'}`)+` | ${getDtypeName(CFG.dtype)}${storeName}`;
+  render();
+}
+
+// ═══ SESSION ═══
+function renderSession(){
+  const ses=S.ses, cfg=S.config;
+  const isJ=cfg.mode==='juggler', isP=cfg.mode==='pachinko', isS=cfg.mode==='slot'||cfg.mode==='custom';
+  const D=yenPerMedal(cfg.dtype, cfg.storeIdx);
+  const M=isJ?getM(cfg.machine):null;
+  const CM=cfg.customMachineIdx>=0?S.customMachines[cfg.customMachineIdx]:null;
+  const ratio=Math.min(ses.invested/cfg.budget,1);
+  const bc=ratio<.6?'#639922':ratio<.85?'var(--amber)':'var(--red)';
+  const rem=cfg.budget-ses.invested;
+  const isOver=ses.invested>=cfg.budget;
+  const bal=ses.payout-ses.invested;
+  const bC=bal>0?'p':bal<0?'n':'z', bS=bal>=0?'+':'';
+  const target=['hit1','peka1','sakib40','sakib90','sakibEX'].includes(cfg.goal)?1:2;
+  const rpm=ses.records.length?(ses.records.reduce((s,r)=>s+r.rpm,0)/ses.records.length):(cfg.rpm||30);
+  const cp=1000/rpm;
+
+  // ── 次の当たりシミュ（現在金額に連動） ──
+  let rtSec='';
+  if(isJ||isP){
+    const s1=isJ?M.sets[0]:{b:cfg.pdenom,r:cfg.pdenom*3};
+    const denom=isJ?comb(s1):cfg.pdenom;
+    const t50=Math.round(denom*cp), t90=Math.round(qG(1/denom,.9)*cp), t95=Math.round(qG(1/denom,.95)*cp);
+    const remSpins=Math.max(0,Math.floor(rem/cp));
+    const probInRem=rem>0?Math.round((1-Math.pow(1-1/denom,remSpins))*100):0;
+    const probColor=probInRem>=60?'#97C459':probInRem>=30?'var(--amber)':'#f09595';
+
+    if(isP){
+      // パチンコ: 総回転数・当たり確率・先バレ確率
+      const totalSpins=Math.round(ses.invested/cp);
+      const hitProbTotal=Math.round((1-Math.pow(1-1/denom,totalSpins))*100);
+      const sakibPct={'sakib40':40,'sakib90':90,'sakibEX':100,'hit1':null,'hit2':null}[cfg.goal];
+      const sakibLabel={'sakib40':'先バレ40%','sakib90':'先バレ90%','sakibEX':'先バレEX'}[cfg.goal]||'';
+      rtSec=`<div class="card" style="margin-bottom:11px">
+        <div style="font-size:9px;color:var(--tx3);margin-bottom:7px">📡 当たり確率（1/${denom} | ${rpm.toFixed(0)}G/千円）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:${rem>0?8:0}px">
+          <div style="background:var(--sf2);border-radius:7px;padding:7px 8px">
+            <div style="font-size:9px;color:var(--tx3)">これまで計${totalSpins}G</div>
+            <div style="font-size:9px;color:var(--tx3)">当たった確率</div>
+            <div class="mono" style="font-size:15px;font-weight:700;color:${hitProbTotal>=50?'var(--amber)':'var(--tx)'}">${hitProbTotal}%</div>
+          </div>
+          ${rem>0?`<div style="background:var(--sf2);border-radius:7px;padding:7px 8px">
+            <div style="font-size:9px;color:var(--tx3)">残りの${fY(rem)}で</div>
+            <div style="font-size:9px;color:var(--tx3)">当たる確率</div>
+            <div class="mono" style="font-size:15px;font-weight:700;color:${probColor}">${probInRem}%</div>
+          </div>`:''}
+        </div>
+        ${sakibPct?`<div style="background:#0a1400;border:.5px solid #3B6D11;border-radius:7px;padding:7px 10px;margin-bottom:7px;font-size:11px">
+          <span style="color:var(--tx3)">ゴール: ${sakibLabel} — </span>
+          <span style="color:#97C459;font-weight:600">当たった時に${sakibPct}%の確率で発生</span>
+        </div>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center">
+          <div><div style="font-size:9px;color:var(--tx3)">50%の確率</div><div class="mono" style="font-size:12px;font-weight:600">${fY(t50)}</div></div>
+          <div><div style="font-size:9px;color:var(--amber)">90%の確率</div><div class="mono" style="font-size:12px;font-weight:600;color:var(--amber)">${fY(t90)}</div></div>
+          <div><div style="font-size:9px;color:#f09595">95%の確率</div><div class="mono" style="font-size:12px;font-weight:600;color:#f09595">${fY(t95)}</div></div>
+        </div>
+      </div>`;
+    } else {
+      // ジャグラー
+      rtSec=`<div class="card" style="margin-bottom:11px">
+        <div style="font-size:9px;color:var(--tx3);margin-bottom:7px">📡 次の当たりまで（${rpm.toFixed(0)}G/千円）</div>
+        ${rem>0?`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--sf2);border-radius:8px;padding:7px 10px;margin-bottom:8px">
+          <span style="font-size:11px;color:var(--tx2)">残りの${fY(rem)}でペカる確率</span>
+          <span class="mono" style="font-size:16px;font-weight:700;color:${probColor}">${probInRem}%</span>
+        </div>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center">
+          <div><div style="font-size:9px;color:var(--tx3)">50%の確率</div><div class="mono" style="font-size:12px;font-weight:600">${fY(t50)}</div></div>
+          <div><div style="font-size:9px;color:var(--amber)">90%の確率</div><div class="mono" style="font-size:12px;font-weight:600;color:var(--amber)">${fY(t90)}</div></div>
+          <div><div style="font-size:9px;color:#f09595">95%の確率</div><div class="mono" style="font-size:12px;font-weight:600;color:#f09595">${fY(t95)}</div></div>
+        </div>
+        ${isJ&&M?`<div style="font-size:9px;color:var(--tx3);margin-top:6px">設定1 合算1/${comb(M.sets[0]).toFixed(0)} | BIG1/${M.sets[0].b} REG1/${M.sets[0].r}</div>`:''}
+      </div>`;
+    }
+  }
+
+  // ── リアルタイムグラフ ──
+  let graphSec='';
+  const evts=ses.events;
+  if(evts.length>=2){
+    const W=280,H=70,PL=8,PR=8,PT=8,PB=8,gW=W-PL-PR,gH=H-PT-PB;
+    const vals=evts.map(e=>e.cumPL);
+    const minV=Math.min(...vals,-1), maxV=Math.max(...vals,1), range=maxV-minV;
+    const xp=i=>PL+(i/(evts.length-1))*gW;
+    const yp=v=>PT+gH-((v-minV)/range)*gH;
+    const path=evts.map((e,i)=>`${i===0?'M':'L'}${xp(i).toFixed(1)},${yp(e.cumPL).toFixed(1)}`).join(' ');
+    const zeroY=yp(0), lastPL=evts[evts.length-1].cumPL;
+    const bonus=evts.map((e,i)=>e.type==='big'||e.type==='reg'?{i,e}:null).filter(Boolean);
+    graphSec=`<div style="margin-bottom:11px">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;background:var(--sf);border-radius:8px;border:.5px solid var(--bd)">
+        <line x1="${PL}" y1="${Math.max(PT,Math.min(PT+gH,zeroY)).toFixed(1)}" x2="${W-PR}" y2="${Math.max(PT,Math.min(PT+gH,zeroY)).toFixed(1)}" stroke="#2a2a2a" stroke-width="1"/>
+        <path d="${path}" fill="none" stroke="${lastPL>=0?'#639922':'#E24B4A'}" stroke-width="2"/>
+        ${bonus.map(({i,e})=>`<circle cx="${xp(i).toFixed(1)}" cy="${yp(e.cumPL).toFixed(1)}" r="3" fill="${e.type==='big'?'#85B7EB':'#97C459'}"/>`).join('')}
+        <text x="${(W-PR-2).toFixed(1)}" y="${Math.max(PT+10,Math.min(PT+gH-2,yp(lastPL)-3)).toFixed(1)}" font-size="9" fill="${lastPL>=0?'#97C459':'#f09595'}" text-anchor="end">${bS}${fY(bal)}</text>
+      </svg>
+    </div>`;
+  }
+
+  // ── 回収分析 ──
+  let recSec='';
+  if(ses.hits>0&&bal<-1000){
+    const loss=Math.abs(bal);
+    const bigYen=isJ?M.big*D:CM?CM.big*D:D*300;
+    if(bigYen>0){
+      const needBIG=Math.ceil(loss/bigYen);
+      const s1=isJ?M.sets[0]:null;
+      const bigDenom=isJ?s1.b:cfg.pdenom||300;
+      const costPer=bigDenom*cp;
+      const expBig=Math.max(0,rem/costPer);
+      const pct=Math.max(0,Math.min(99,Math.round(expBig/needBIG*70)));
+      recSec=`<div class="a-rec">
+        <div style="font-size:10px;color:#D4537E;font-weight:600;margin-bottom:7px">📊 回収分析</div>
+        <div class="row" style="font-size:12px;margin-bottom:4px"><span style="color:#999">赤字</span><span class="mono" style="color:#f09595;font-weight:600">${fY(loss)}</span></div>
+        <div class="row" style="font-size:12px;margin-bottom:4px"><span style="color:#999">回収に必要なBIG</span><span class="mono" style="color:#f09595">${needBIG}回</span></div>
+        <div class="row" style="font-size:12px;margin-bottom:7px"><span style="color:#999">残予算で達成できる確率</span><span class="mono" style="color:${pct<30?'var(--red)':pct<60?'var(--amber)':'#97C459'};font-weight:700">約${pct}%</span></div>
+        <div style="font-size:10px;color:#555;line-height:1.5">低設定（設定1）想定での推計。確率は低いほど「やめ時」です。</div>
+      </div>`;
+    }
+  }
+
+  // ── 超過 ──
+  let overSec='';
+  if(isOver){
+    const extra=ses.invested-cfg.budget;
+    const s1=isJ?M.sets[0]:null;
+    const denom=isJ?comb(s1):cfg.pdenom||300;
+    const expMore=denom*cp;
+    overSec=`<div class="a-over">
+      <div style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:7px">🚨 予算超過 — 今やめると最安</div>
+      <div class="row" style="font-size:13px;margin-bottom:5px"><span style="color:#999">超過</span><span class="mono" style="color:#f09595;font-weight:700">${fY(extra)}</span></div>
+      ${expMore?`<div class="row" style="font-size:11px;margin-bottom:4px"><span style="color:#999">次の当たりまで平均あと</span><span class="mono" style="color:#f09595">${fY(expMore)}</span></div>
+      <div class="row" style="font-size:11px;margin-bottom:9px"><span style="color:#999">最悪95%あと</span><span class="mono" style="color:var(--red);font-weight:700">${fY(expMore*2.3)}</span></div>`:''}
+      <button class="btn-main" style="background:var(--red);font-size:13px" onclick="endSes(false)">撤退する（正解）</button>
+    </div>`;
+  }
+
+  // ── 出玉入力 ──
+  let payoutSec='';
+  if(ses.pendingBonus){
+    const pb=ses.pendingBonus;
+    const approx=isJ?(pb.type==='big'?M.big:M.reg):(CM?pb.type==='big'?CM.big:CM.reg:240);
+    payoutSec=`<div class="card" style="border-color:#185FA5;margin-bottom:11px">
+      <div style="font-size:11px;color:#85B7EB;font-weight:600;margin-bottom:7px">${pb.type==='big'?'BIG':'REG'} 終了 — 実際の枚数は？</div>
+      <div style="display:flex;gap:7px">
+        <input class="inp" type="number" id="bm" placeholder="例: ${approx}" style="flex:1">
+        <button class="btn-bonus big-b" style="flex:none;padding:0 12px" onclick="confirmBonus()">確定</button>
+        <button class="btn-ol" onclick="quickBonus()" style="font-size:11px">約${approx}枚</button>
+      </div>
+    </div>`;
+  } else if(isJ){
+    payoutSec=`<div style="margin-bottom:11px">
+      <div class="lbl">出玉記録</div>
+      <div style="display:flex;gap:7px;margin-bottom:6px">
+        <button class="btn-bonus big-b" onclick="recBonus('big')">約BIG<br><span style="font-size:10px;opacity:.7">+約${fY(M.big*D)}</span></button>
+        <button class="btn-bonus reg-b" onclick="recBonus('reg')">約REG<br><span style="font-size:10px;opacity:.7">+約${fY(M.reg*D)}</span></button>
+      </div>
+      <div class="row" style="font-size:11px;color:var(--tx2)"><span>BIG ${ses.bigC} / REG ${ses.regC}</span><span>出玉 ${fY(ses.payout)}</span></div>
+    </div>`;
+  } else if(isP){
+    payoutSec=`<div style="margin-bottom:11px">
+      <div class="lbl">持ち玉 → 収支計算</div>
+      <div style="display:flex;gap:7px;margin-bottom:7px">
+        <input class="inp" type="number" placeholder="現在の持ち玉数" style="flex:1" oninput="updateTama(parseInt(this.value)||0)">
+        <div style="background:var(--sf);border:.5px solid var(--bd2);border-radius:9px;padding:9px 11px;font-size:11px;color:var(--tx2);white-space:nowrap" id="tv">≈¥0</div>
+      </div>
+      <button class="btn-bonus big-b" style="width:100%" onclick="recHit()">当たった！</button>
+    </div>`;
+  } else {
+    // 汎用スロット
+    payoutSec=`<div style="margin-bottom:11px">
+      <div class="lbl">手持ちメダル（最終または途中）</div>
+      <div style="display:flex;gap:7px;margin-bottom:7px">
+        <input class="inp" type="number" id="sm" placeholder="現在の枚数" style="flex:1">
+        <button class="btn-ol" onclick="updateSlot()">更新</button>
+      </div>
+      <button class="btn-bonus big-b" style="width:100%" onclick="recHit()">当たった！（ボーナス確定）</button>
+    </div>`;
+  }
+
+  // ── カウンター (スロット/ジャグラー) ──
+  let ctrSec='';
+  if(isJ||isS){
+    const elapsed=CTR.curG-CTR.startG;
+    ctrSec=`<div class="div"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="lbl" style="margin-bottom:0">カウンター</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ol" style="font-size:10px;padding:4px 8px" onclick="resetCtr()">リセット</button>
+          <button class="btn-ol" style="font-size:10px;padding:4px 8px" onclick="saveCtrHistory()">保存</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px">
+        <div>
+          <div style="font-size:9px;color:var(--tx3);margin-bottom:4px">開始G</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="cnt-btn" style="font-size:12px;width:30px;height:30px" onclick="CTR.startG=Math.max(0,CTR.startG-10);render()">−10</button>
+            <button class="cnt-btn" style="font-size:14px;width:30px;height:30px" onclick="CTR.startG=Math.max(0,CTR.startG-1);render()">−</button>
+            <div class="mono" style="font-size:14px;font-weight:600;min-width:44px;text-align:center">${CTR.startG}</div>
+            <button class="cnt-btn" style="font-size:14px;width:30px;height:30px;background:#0a1400;border-color:#3B6D11;color:#97C459" onclick="CTR.startG++;render()">＋</button>
+            <button class="cnt-btn" style="font-size:12px;width:30px;height:30px;background:#0a1400;border-color:#3B6D11;color:#97C459" onclick="CTR.startG+=10;render()">+10</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--tx3);margin-bottom:4px">現在G　${elapsed>0?`<span style="color:var(--amber)">+${elapsed}G</span>`:''}</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="cnt-btn" style="font-size:12px;width:30px;height:30px" onclick="CTR.curG=Math.max(CTR.startG,CTR.curG-10);render()">−10</button>
+            <button class="cnt-btn" style="font-size:14px;width:30px;height:30px" onclick="CTR.curG=Math.max(CTR.startG,CTR.curG-1);render()">−</button>
+            <div class="mono" style="font-size:14px;font-weight:600;min-width:44px;text-align:center">${CTR.curG}</div>
+            <button class="cnt-btn" style="font-size:14px;width:30px;height:30px;background:#0a1400;border-color:#3B6D11;color:#97C459" onclick="CTR.curG++;render()">＋</button>
+            <button class="cnt-btn" style="font-size:12px;width:30px;height:30px;background:#0a1400;border-color:#3B6D11;color:#97C459" onclick="CTR.curG+=10;render()">+10</button>
+          </div>
+        </div>
+      </div>
+      ${CTR.counters.map((c,i)=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
+          <input class="inp sm" value="${c.label}" oninput="CTR.counters[${i}].label=this.value" style="flex:1.2;font-size:11px">
+          <button class="cnt-btn" onclick="CTR.counters[${i}].val=Math.max(0,CTR.counters[${i}].val-1);render()">−</button>
+          <div class="mono" style="font-size:17px;font-weight:600;min-width:34px;text-align:center">${c.val}</div>
+          <button class="cnt-btn" style="background:#0a1400;border-color:#3B6D11;color:#97C459" onclick="CTR.counters[${i}].val++;render()">＋</button>
+          ${elapsed>0&&c.val>0?`<div style="font-size:9px;color:var(--tx3);min-width:42px">1/${(elapsed/c.val).toFixed(1)}</div>`:'<div style="min-width:42px"></div>'}
+        </div>`).join('')}`;
+  }
+
+  // ── 投資ボタン ──
+  let invSec='';
+  if(!isOver&&!ses.pendingBonus){
+    if(ses.showRpm){
+      invSec=`<div class="card" style="margin-bottom:10px">
+        <div style="font-size:12px;font-weight:500;margin-bottom:9px">1000円あたりの回転数は？</div>
+        ${rpmGrid()}
+      </div>`;
+    } else {
+      // レート別ボタン
+      const btns={'4p':[1000],'1p':[200,500,1000],'5s':[500,1000],'20s':[1000]}[cfg.dtype]||[500,1000];
+      invSec=`<div style="display:grid;grid-template-columns:${btns.length===1?'1fr':btns.length===2?'1fr 1fr':'1fr 1fr 1fr'};gap:6px">
+        ${btns.map(a=>`<button class="btn-add" onclick="addInv(${a})">+${a>=1000?a/1000+'k':a}</button>`).join('')}
+      </div>`;
+    }
+  }
+
+  return `
+    <div style="text-align:center;margin-bottom:11px">
+      <div class="lbl">投資額</div>
+      <div class="big">${fY(ses.invested)}</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:4px;flex-wrap:wrap">
+        <span style="font-size:12px;color:${rem>=0?'var(--tx2)':'var(--red)'}">残 <span class="mono">${fY(Math.max(rem,0))}</span></span>
+        <span class="bal ${bC}">${bS}${fY(bal)}</span>
+        ${ses.hits>0?`<span style="background:#0a1e06;border:.5px solid var(--green);border-radius:99px;padding:2px 8px;font-size:10px;color:#97C459">${ses.hits}/${target}</span>`:''}
+      </div>
+    </div>
+    <div class="bar-wrap" style="margin-bottom:11px"><div class="bar-fill" style="width:${ratio*100}%;background:${bc}"></div></div>
+    ${ses.warnShown&&!isOver?`<div class="a-warn">⚠ 予算85%到達 — 残り ${fY(rem)}</div>`:''}
+    ${overSec}
+    ${rtSec}
+    ${recSec}
+    ${payoutSec}
+    ${!isOver?invSec:`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        ${[500,1000].map(a=>`<button class="btn-add" style="border-color:var(--red);color:#f09595" onclick="addInv(${a})">+${a>=1000?a/1000+'k':a} <span style="font-size:9px;opacity:.7">超過</span></button>`).join('')}
+      </div>`}
+    ${ctrSec}
+    <div class="g2"></div>
+    <button class="btn-ol" onclick="endSes(false)" style="width:100%;font-size:11px">中断する</button>
+    <div class="g"></div>`;
+}
+
+function rpmGrid(){
+  const prev=S.ses.records.length?S.ses.records[S.ses.records.length-1].rpm:(S.config.rpm||30);
+  const cells=[-4,-3,-2,-1,0,1,2,3,4].map(d=>Math.max(1,prev+d));
+  return `<div class="rpm-grid">${cells.map((v,i)=>`<button class="rpm-cell${i===4?' ctr':''}" onclick="recRpm(${v})">${v}</button>`).join('')}</div>
+    <div style="display:flex;gap:7px"><input class="inp" type="number" placeholder="その他" id="rpc" style="flex:1"><button class="btn-ol" onclick="subRpm()">確定</button></div>`;
+}
+
+function addInvJug(){ S.ses.gamesPlayed+=S.config.rpm||30; addInv(1000); }
+
+function addInv(a){
+  const ses=S.ses, cfg=S.config;
+  ses.invested+=a;
+  const cumPL=ses.payout-ses.invested;
+  ses.events.push({type:'inv',cumPL});
+  if(ses.invested>=cfg.budget*.85&&!ses.warnShown) ses.warnShown=true;
+  if(cfg.mode==='pachinko'){ses.pendingInv=ses.invested;ses.showRpm=true;}
+  render();
+}
+function recRpm(v){S.ses.records.push({invested:S.ses.pendingInv,rpm:v});S.ses.showRpm=false;render();}
+function subRpm(){const v=parseInt(document.getElementById('rpc')?.value);if(v>0)recRpm(v);}
+function updateTama(v){const D=yenPerMedal(S.config.dtype,S.config.storeIdx);S.ses.payout=v*D;const el=document.getElementById('tv');if(el)el.textContent='≈'+fY(S.ses.payout);}
+function updateSlot(){const v=parseInt(document.getElementById('sm')?.value)||0;const D=yenPerMedal(S.config.dtype,S.config.storeIdx);S.ses.payout=v*D;render();}
+
+function recBonus(type){ S.ses.pendingBonus={type}; render(); }
+function quickBonus(){
+  const pb=S.ses.pendingBonus, cfg=S.config, D=yenPerMedal(cfg.dtype,cfg.storeIdx);
+  const M=getM(cfg.machine), CM=cfg.customMachineIdx>=0?S.customMachines[cfg.customMachineIdx]:null;
+  const medals=pb.type==='big'?(M?M.big:CM?CM.big:240):(M?M.reg:CM?CM.reg:96);
+  applyBonus(pb.type,medals*D);
+}
+function confirmBonus(){
+  const pb=S.ses.pendingBonus, D=yenPerMedal(S.config.dtype,S.config.storeIdx);
+  const v=parseInt(document.getElementById('bm')?.value)||0;
+  const M=getM(S.config.machine), CM=S.config.customMachineIdx>=0?S.customMachines[S.config.customMachineIdx]:null;
+  const fallback=pb.type==='big'?(M?M.big:CM?CM.big:240):(M?M.reg:CM?CM.reg:96);
+  applyBonus(pb.type,(v>0?v:fallback)*D);
+}
+function applyBonus(type,pay){
+  const ses=S.ses, cfg=S.config;
+  ses.payout+=pay;
+  if(type==='big')ses.bigC++;else ses.regC++;
+  ses.hits++;
+  ses.pendingBonus=null;
+  ses.events.push({type,cumPL:ses.payout-ses.invested});
+  const t=['hit1','peka1'].includes(cfg.goal)?1:2;
+  if(ses.hits>=t) endSes(true); else render();
+}
+function recHit(){
+  S.ses.hits++;
+  S.ses.events.push({type:'hit',cumPL:S.ses.payout-S.ses.invested});
+  const t=['hit1','peka1','sakib40','sakib90','sakibEX'].includes(S.config.goal)?1:2;
+  if(S.ses.hits>=t) endSes(true); else render();
+}
+
+function saveCtrHistory(){
+  const entry={date:new Date().toISOString(),counters:CTR.counters.map(c=>({...c})),startG:CTR.startG,curG:CTR.curG};
+  const hist=JSON.parse(localStorage.getItem('ctr_history')||'[]');
+  hist.unshift(entry);
+  if(hist.length>50)hist.length=50;
+  localStorage.setItem('ctr_history',JSON.stringify(hist));
+  alert('カウンター履歴を保存しました');
+}
+
+function resetCtr(){
+  CTR.counters.forEach(c=>c.val=0);
+  CTR.startG=CTR.curG;
+  render();
+}
+
+function endSes(ok){
+  const s=S.ses, cfg=S.config;
+  S.result={invested:s.invested,payout:s.payout,balance:s.payout-s.invested,hits:s.hits,bigC:s.bigC,regC:s.regC,success:ok};
+  const M=isJuggler(cfg)?getM(cfg.machine):null;
+  const store=cfg.storeIdx>=0?S.stores[cfg.storeIdx]:null;
+  S.history.unshift({id:Date.now(),date:new Date().toISOString(),mode:cfg.mode,dtype:cfg.dtype,
+    pdenom:cfg.pdenom,machine:cfg.machine,machineName:M?.name||S.customMachines[cfg.customMachineIdx]?.name||'',
+    storeName:store?.name||'',budget:cfg.budget,invested:s.invested,payout:s.payout,
+    balance:s.payout-s.invested,hits:s.hits,success:ok});
+  if(S.history.length>300)S.history=S.history.slice(0,300);
+  localStorage.setItem('history',JSON.stringify(S.history));
+  S.screen='result'; render();
+}
+const isJuggler=cfg=>cfg.mode==='juggler';
+
+// ═══ RESULT ═══
+function renderResult(){
+  const r=S.result, ok=r.success;
+  const bC=r.balance>0?'p':r.balance<0?'n':'z', bS=r.balance>=0?'+':'';
+  const store=S.config.storeIdx>=0?S.stores[S.config.storeIdx]:null;
+  return `<div style="text-align:center;padding-top:10px">
+    <div style="width:54px;height:54px;border-radius:50%;background:${ok?'#0a1e06':'#1e0808'};display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 12px">${ok?'🎰':'🛑'}</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:6px">${ok?'ゴール達成！即撤退！':'終了。よく守れました。'}</div>
+    <div style="font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:16px">${ok?'サンクコストに勝った。':'上限を守り切った。追いかけなかった自分を誇ってください。'}</div>
+    ${store?`<div style="font-size:11px;color:var(--tx3);margin-bottom:10px">店舗: ${store.name} (${store.type==='equal'?'等価':'非等価'})</div>`:''}
+    <div class="card" style="text-align:left;margin-bottom:14px">
+      ${[['投資額',fY(r.invested)],['出玉',fY(r.payout)],['収支',`<span class="bal ${bC}">${bS}${fY(r.balance)}</span>`],['ヒット',r.hits+'回'],
+        ...(r.bigC||r.regC?[['BIG/REG',`${r.bigC}/${r.regC}`]]:[])]
+        .map(([k,v],i)=>`<div class="row" style="font-size:12px;${i?'margin-top:8px':''}"><span style="color:var(--tx2)">${k}</span><span class="mono" style="font-weight:500">${v}</span></div>`).join('')}
+    </div>
+    <button class="btn-main" onclick="resetSes()">新しいセッションを始める</button><div class="g"></div></div>`;
+}
+function resetSes(){S.screen='setup';document.getElementById('hs').textContent='依存を軽くするセッションマネージャー';render();}
+
+// ═══ EV TAB ═══
+function renderEV(){
+  if(S.screen!=='session'||!S.ses?.records?.length) return`<div style="text-align:center;padding:36px 0;color:var(--tx3)"><div style="font-size:28px;margin-bottom:8px">📊</div>セッション中に回転数を<br>記録すると表示されます</div>`;
+  const s=S.ses, cfg=S.config, D=yenPerMedal(cfg.dtype,cfg.storeIdx);
+  const M=getM(cfg.machine);
+  const avg=s.records.reduce((x,r)=>x+r.rpm,0)/s.records.length, cp=1000/avg;
+  const denom=cfg.mode==='juggler'?comb(M.sets[0]):cfg.pdenom||300;
+  const exact=denom*cp, real=exact*1.45;
+  const bal=s.payout-s.invested, bC=bal>0?'p':bal<0?'n':'z', bS=bal>=0?'+':'';
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
+    <div class="card"><div style="font-size:9px;color:var(--tx3);margin-bottom:3px">理論値（50%）</div><div style="font-size:18px;font-weight:500" class="mono">${fY(exact)}</div></div>
+    <div class="card" style="border-color:#993556"><div style="font-size:9px;color:#993556;margin-bottom:3px">現実目安（65%）</div><div style="font-size:18px;font-weight:500;color:#f09595" class="mono">${fY(real)}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:10px">
+    ${[['平均回転数',avg.toFixed(1)+'G/千円'],['投資',fY(s.invested)],['出玉',fY(s.payout)],['収支',`<span class="bal ${bC}">${bS}${fY(bal)}</span>`]]
+      .map(([k,v],i)=>`<div class="row" style="font-size:12px;${i?'margin-top:8px':''}"><span style="color:var(--tx2)">${k}</span><span class="mono">${v}</span></div>`).join('')}
+  </div>
+  <div class="info-box"><strong style="color:var(--tx2)">ボーダーの罠</strong><br>ボーダー超えでも費用は毎回リセット。次の1回転は常に1/${Math.round(denom)}の確率です。</div>
+  <div class="g"></div>
+  ${s.records.map(r=>`<div class="row" style="font-size:11px;padding:6px 0;border-bottom:.5px solid var(--bd)"><span style="color:var(--tx3)">${fY(r.invested)}</span><span class="mono">${r.rpm}G</span></div>`).join('')}
+  <div class="g"></div>`;
+}
+
+// ═══ STORE TAB ═══
+function renderStore(){
+  const dtypeLabels={'4p':'4パチ','1p':'1パチ','20s':'20スロ','5s':'5スロ'};
+  return `<div class="lbl">登録済み店舗</div>
+    ${!S.stores.length?`<div style="color:var(--tx3);font-size:12px;margin-bottom:16px">まだ登録されていません</div>`
+      :S.stores.map((s,i)=>{
+        const ent=t=>{if(!t)return null;const[h,m]=t.split(':').map(Number);const e=(h*60+m-120+1440)%1440;return`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;};
+        return`<div class="card" style="margin-bottom:9px">
+          <div class="row" style="margin-bottom:8px">
+            <div><div style="font-size:14px;font-weight:600">${s.name}</div>
+            <div style="font-size:11px;color:var(--tx2);margin-top:2px">${s.type==='equal'?'等価':' 非等価'} ${s.close?'| 閉店'+s.close:''}</div></div>
+            <button class="btn-ol" style="font-size:10px;padding:4px 8px" onclick="delStore(${i})">削除</button>
+          </div>
+          ${s.type==='unequal'&&s.rates?`<div style="font-size:11px;color:var(--tx3)">
+            ${Object.entries(s.rates).map(([k,v])=>`${dtypeLabels[k]||k}: ${v}枚/千円 (${(1000/v).toFixed(2)}円/枚)`).join('　')}
+          </div>`:''}
+          ${s.close?`<div class="div" style="margin:8px 0"></div><div style="font-size:11px;color:var(--tx2)">入店推奨 <strong style="color:var(--tx)">${ent(s.close)||''}</strong> 以降で閉店</div>`:''}
+        </div>`;}).join('')}
+    <div class="g2"></div>
+    <div class="lbl">店舗を追加</div>
+    <input class="inp" id="s-n" placeholder="店舗名" style="margin-bottom:7px">
+
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="chip${!window._stUnequal?' on':''}" onclick="window._stUnequal=false;render()">等価</button>
+      <button class="chip${window._stUnequal?' on':''}" onclick="window._stUnequal=true;render()">非等価</button>
+    </div>
+    ${window._stUnequal?`<div style="font-size:11px;color:var(--tx3);margin-bottom:7px">1000円あたりに交換できる玉/枚数を入力（等価なら空欄でOK）</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+        <div><div style="font-size:9px;color:var(--tx3);margin-bottom:3px">4パチ（玉/千円）</div><input class="inp sm" id="r4p" type="number" placeholder="250"></div>
+        <div><div style="font-size:9px;color:var(--tx3);margin-bottom:3px">1パチ（玉/千円）</div><input class="inp sm" id="r1p" type="number" placeholder="1000"></div>
+        <div><div style="font-size:9px;color:var(--tx3);margin-bottom:3px">20スロ（枚/千円）</div><input class="inp sm" id="r20s" type="number" placeholder="50"></div>
+        <div><div style="font-size:9px;color:var(--tx3);margin-bottom:3px">5スロ（枚/千円）</div><input class="inp sm" id="r5s" type="number" placeholder="200"></div>
+      </div>`:''}
+    <button class="btn-main" onclick="addStore()">追加する</button>
+    ${S.customMachines.length?`<div class="g2"></div><div class="lbl">カスタム機種</div>
+      ${S.customMachines.map((m,i)=>`<div class="row" style="font-size:12px;padding:8px 0;border-bottom:.5px solid var(--bd)">
+        <span>${m.name} | ${m.rpm}G/千円${m.ceilG?' | 天井'+m.ceilG+'G':''} | BIG${m.big}/REG${m.reg}枚</span>
+        <button class="btn-ol" style="font-size:10px;padding:4px 8px" onclick="delCustomM(${i})">削除</button>
+      </div>`).join('')}`:''}
+    <div class="g"></div>`;
+}
+
+function addStore(){
+  const n=document.getElementById('s-n')?.value.trim(); if(!n)return;
+  const getR=id=>parseInt(document.getElementById(id)?.value)||null;
+  const isU=!!window._stUnequal;
+  const store={name:n,close:document.getElementById('s-c')?.value||'',type:isU?'unequal':'equal'};
+  if(isU) store.rates={'4p':getR('r4p')||250,'1p':getR('r1p')||1000,'20s':getR('r20s')||50,'5s':getR('r5s')||200};
+  S.stores.push(store);
+  localStorage.setItem('stores',JSON.stringify(S.stores));
+  window._stUnequal=false; render();
+}
+function delStore(i){S.stores.splice(i,1);localStorage.setItem('stores',JSON.stringify(S.stores));render();}
+function delCustomM(i){S.customMachines.splice(i,1);localStorage.setItem('cmachines',JSON.stringify(S.customMachines));render();}
+
+// ═══ HISTORY TAB ═══
+function renderHistory(){
+  if(S.history.length<2) return`<div style="text-align:center;padding:36px 0;color:var(--tx3)"><div style="font-size:28px;margin-bottom:8px">📈</div>2回以上のセッションで<br>グラフが表示されます</div>`;
+  const sorted=[...S.history].reverse();
+  // 累計収支（投資-回収）で表示
+  let cumBal=0;
+  const cumul=sorted.map((h,i)=>{
+    cumBal+=(h.balance||0)-(h.balance||0)+(h.payout||0)-h.invested; // net = payout - invested
+    return{i:i+1,v:cumBal,ok:h.success};
+  });
+  const rec=sorted.slice(-Math.min(5,sorted.length));
+  const avgBal=rec.reduce((s,h)=>s+(h.payout||0)-h.invested,0)/rec.length;
+  const pes=avgBal*1.3; // 将来予測: 平均損失の1.3倍
+  const last=cumul[cumul.length-1];
+  const fut=Array.from({length:10},(_,i)=>({i:last.i+i+1,v:last.v+pes*(i+1)}));
+  const all=[...cumul,...fut];
+  const W=280,H=130,PL=46,PR=10,PT=12,PB=20,gW=W-PL-PR,gH=H-PT-PB;
+  const mx=all[all.length-1].v, tot=all.length;
+  const minV2=Math.min(0,...cumul.map(p=>p.v),...fut.map(p=>p.v));
+  const rangeV=Math.max(1,(Math.max(0,...cumul.map(p=>p.v),...fut.map(p=>p.v)))-minV2);
+  const xp=i=>PL+((i-1)/(tot-1))*gW, yp=v=>PT+gH-((v-minV2)/rangeV)*gH;
+  const rp=cumul.map((p,i)=>`${i?'L':'M'}${xp(p.i).toFixed(1)},${yp(p.v).toFixed(1)}`).join(' ');
+  const fp=[last,...fut].map((p,i)=>`${i?'L':'M'}${xp(p.i).toFixed(1)},${yp(p.v).toFixed(1)}`).join(' ');
+  const fa=[`M${xp(last.i).toFixed(1)},${yp(last.v).toFixed(1)}`,...fut.map(p=>`L${xp(p.i).toFixed(1)},${yp(p.v).toFixed(1)}`),`L${xp(fut[fut.length-1].i).toFixed(1)},${(PT+gH).toFixed(1)}`,`L${xp(last.i).toFixed(1)},${(PT+gH).toFixed(1)}Z`].join(' ');
+  const yTks=[0,.25,.5,.75,1].map(r=>({v:minV2+rangeV*r,y:yp(minV2+rangeV*r)}));
+  const tm=new Date().toISOString().slice(0,7);
+  const mo=S.history.filter(h=>h.date.startsWith(tm));
+  const mi=mo.reduce((s,h)=>s+h.invested,0), mp=mo.reduce((s,h)=>s+(h.payout||0),0), mb=mp-mi;
+  const spm=sorted.length>1?sorted.length/Math.max(.5,(new Date(sorted[sorted.length-1].date)-new Date(sorted[0].date))/(864e5*30)):4;
+  return `<div class="lbl">累計投資推移</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;margin-bottom:5px">
+      ${yTks.map(t=>`<line x1="${PL}" y1="${t.y.toFixed(1)}" x2="${W-PR}" y2="${t.y.toFixed(1)}" stroke="#1e1e1e" stroke-width="1"/><text x="${(PL-4).toFixed(1)}" y="${(t.y+3).toFixed(1)}" font-size="8" fill="#555" text-anchor="end">${fmt(t.v)}</text>`).join('')}
+      <line x1="${xp(last.i).toFixed(1)}" y1="${PT}" x2="${xp(last.i).toFixed(1)}" y2="${PT+gH}" stroke="#333" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="${PL}" y1="${yp(0).toFixed(1)}" x2="${W-PR}" y2="${yp(0).toFixed(1)}" stroke="#2a2a2a" stroke-width="1"/>
+      <path d="${fa}" fill="#E24B4A" opacity=".07"/>
+      <path d="${fp}" fill="none" stroke="#E24B4A" stroke-width="1.5" stroke-dasharray="5,3" opacity=".7"/>
+      <path d="${rp}" fill="none" stroke="${last.v>=0?'#639922':'#E24B4A'}" stroke-width="2"/>
+      ${cumul.map(p=>`<circle cx="${xp(p.i).toFixed(1)}" cy="${yp(p.v).toFixed(1)}" r="2.5" fill="${p.ok?'#639922':'#E24B4A'}"/>`).join('')}
+    </svg>
+    <div style="display:flex;gap:10px;font-size:10px;color:var(--tx3);margin-bottom:13px"><span>━ 実績</span><span style="opacity:.7">╌ 継続すると…</span></div>
+    <div style="background:#1e0808;border:.5px solid #993556;border-radius:12px;padding:12px 14px;margin-bottom:13px">
+      <div style="font-size:10px;color:#D4537E;font-weight:600;margin-bottom:7px">⚠ このペースで続けると（収支ベース）</div>
+      ${[['次10セッション後',last.v+pes*10],['3ヶ月後',last.v+pes*spm*3],['1年後',last.v+pes*spm*12]]
+        .map(([k,v],i)=>`<div class="row" style="font-size:12px;${i?'margin-top:7px':''}"><span style="color:#999">${k}</span><span class="mono" style="font-weight:600;color:#f09595">${fY(v)}</span></div>`).join('')}
+    </div>
+    <div class="lbl">今月</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:15px">
+      ${[['投資',fY(mi)],['収支',`<span style="color:${mb>=0?'#97C459':'#f09595'}">${mb>=0?'+':''}${fY(mb)}</span>`],['回数',mo.length+'回']]
+        .map(([k,v])=>`<div class="card" style="text-align:center;padding:8px 5px"><div style="font-size:9px;color:var(--tx3);margin-bottom:2px">${k}</div><div style="font-size:12px;font-weight:600">${v}</div></div>`).join('')}
+    </div>
+    <div class="lbl">セッション一覧</div>
+    ${S.history.slice(0,40).map(h=>{
+      const d=new Date(h.date), bal=h.balance||0;
+      const lab=h.machineName||({pachinko:'パチンコ',juggler:'ジャグラー',slot:'汎用スロット'}[h.mode]||h.mode);
+      return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid var(--bd);font-size:11px">
+        <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px">${h.success?'🎰':'🛑'}</span>
+        <div><div style="font-weight:500">${lab}${h.storeName?` @ ${h.storeName}`:''}</div>
+        <div style="font-size:9px;color:var(--tx3)">${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</div></div></div>
+        <div style="text-align:right"><div class="mono" style="font-weight:600">${fY(h.invested)}</div>
+        ${h.payout?`<div style="font-size:9px;color:${bal>=0?'#97C459':'#f09595'}">${bal>=0?'+':''}${fY(bal)}</div>`:''}
+        </div></div>`;}).join('')}
+    ${S.history.length>40?`<div style="font-size:10px;color:var(--tx3);text-align:center;padding:8px 0">他${S.history.length-40}件</div>`:''}
+    <div class="g2"></div>
+    <button class="btn-ol" style="width:100%;font-size:11px;color:var(--tx3)" onclick="clearHist()">履歴をすべて削除</button>
+    <div class="g"></div>`;
+}
+function clearHist(){
+  document.getElementById('confirm-modal').style.display='flex';
+}
+function confirmClearHist(ok){
+  document.getElementById('confirm-modal').style.display='none';
+  if(!ok) return;
+  S.history=[];
+  localStorage.removeItem('history');
+  render();
+}
+
+// ═══ SEARCH ═══
+function doSearch(){
+  const q=document.getElementById('srch')?.value?.trim();
+  if(!q) return;
+  const url=q.match(/^https?:\/\//)?q:q.includes('.')&&!q.includes(' ')?`https://${q}`:`https://www.google.co.jp/search?q=${encodeURIComponent(q)}`;
+  window.open(url,'_blank');
+}
+
+// ═══ BOOKMARKS ═══
+const BOOKMARKS = JSON.parse(localStorage.getItem('bookmarks')||'[]');
+
+function renderBookmarks(){
+  const el=document.getElementById('bm-list');
+  if(!el)return;
+  if(!BOOKMARKS.length){
+    el.innerHTML='<div style="font-size:11px;color:var(--tx3);margin-bottom:8px">まだブックマークはありません</div>';
+    return;
+  }
+  el.innerHTML=BOOKMARKS.map((b,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <button onclick="window.open('${b.url}','_blank')" style="flex:1;background:var(--sf);border:.5px solid var(--bd2);border-radius:9px;color:var(--tx);font-size:12px;font-weight:500;padding:9px 10px;cursor:pointer;font-family:inherit;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">🔖 ${b.name}</button>
+      <button onclick="deleteBookmark(${i})" style="background:none;border:.5px solid var(--bd2);border-radius:9px;color:var(--tx3);font-size:11px;padding:7px 10px;cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>
+    </div>`).join('');
+}
+
+function addBookmark(){
+  const name=(document.getElementById('bm-name')?.value||'').trim();
+  const url=(document.getElementById('bm-url')?.value||'').trim();
+  if(!name||!url)return;
+  const fullUrl=url.match(/^https?:\/\//)?url:'https://'+url;
+  BOOKMARKS.push({name,url:fullUrl});
+  localStorage.setItem('bookmarks',JSON.stringify(BOOKMARKS));
+  document.getElementById('bm-name').value='';
+  document.getElementById('bm-url').value='';
+  renderBookmarks();
+}
+
+function deleteBookmark(i){
+  BOOKMARKS.splice(i,1);
+  localStorage.setItem('bookmarks',JSON.stringify(BOOKMARKS));
+  renderBookmarks();
+}
+
+// ═══ BROWSER ═══
+function browserGo(){
+  const q=(document.getElementById('b-url').value||'').trim();
+  if(!q)return;
+  const url=q.match(/^https?:\/\//)?q:q.includes('.')&&!q.includes(' ')?'https://'+q:'https://www.google.co.jp/search?q='+encodeURIComponent(q);
+  window.open(url,'_blank');
+}
+
+// ═══ INIT ═══
+render();
+</script>
+</body>
+</html>
